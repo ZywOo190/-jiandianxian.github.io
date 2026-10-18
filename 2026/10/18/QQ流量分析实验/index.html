@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  
+  
+  <title>QQ流量分析实验（PC-PC端 / PC-手机端） | Jiandianxian&#39;s Blog</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="description" content="课程作业：QQ流量分析实验。通过 Wireshark 抓包，判断 QQ 使用 UDP 还是 TCP、传输是否加密，并利用文件魔数 FF D8 FF 从明文 HTTP 流量中完整还原出 4.4MB 的在线传输图片。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="QQ流量分析实验（PC-PC端 / PC-手机端）">
+<meta property="og:url" content="https://zywoo190.github.io/-jiandianxian.github.io/2026/10/18/QQ流量分析实验/index.html">
+<meta property="og:site_name" content="Jiandianxian&#39;s Blog">
+<meta property="og:description" content="课程作业：QQ流量分析实验。通过 Wireshark 抓包，判断 QQ 使用 UDP 还是 TCP、传输是否加密，并利用文件魔数 FF D8 FF 从明文 HTTP 流量中完整还原出 4.4MB 的在线传输图片。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-10-18T07:00:00.000Z">
+<meta property="article:modified_time" content="2026-10-18T07:00:00.000Z">
+<meta property="article:author" content="ZywOo190">
+<meta property="article:tag" content="网络安全">
+<meta property="article:tag" content="流量分析">
+<meta name="twitter:card" content="summary">
+  
+    <link rel="alternate" href="/-jiandianxian.github.io/atom.xml" title="Jiandianxian's Blog" type="application/atom+xml">
+  
+  
+    <link rel="shortcut icon" href="/-jiandianxian.github.io/favicon.png">
+  
+  
+  
+<link rel="stylesheet" href="/-jiandianxian.github.io/css/style.css">
+
+  
+    
+<link rel="stylesheet" href="/-jiandianxian.github.io/fancybox/jquery.fancybox.min.css">
+
+  
+  
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fork-awesome@1.2.0/css/fork-awesome.min.css">
+
+<meta name="generator" content="Hexo 8.1.2"></head>
+
+<body>
+  <div id="container">
+    <div id="wrap">
+      <header id="header">
+  <div id="banner"></div>
+  <div id="header-outer" class="outer">
+    <div id="header-title" class="inner">
+      <h1 id="logo-wrap">
+        <a href="/-jiandianxian.github.io/" id="logo">Jiandianxian&#39;s Blog</a>
+      </h1>
+      
+    </div>
+    <div id="header-inner" class="inner">
+      <nav id="main-nav">
+        <a id="main-nav-toggle" class="nav-icon"><span class="fa fa-bars"></span></a>
+        
+          <a class="main-nav-link" href="/-jiandianxian.github.io/">Home</a>
+        
+          <a class="main-nav-link" href="/-jiandianxian.github.io/archives">Archives</a>
+        
+      </nav>
+      <nav id="sub-nav">
+        
+        
+          <a class="nav-icon" href="/-jiandianxian.github.io/atom.xml" title="RSS 订阅"><span class="fa fa-rss"></span></a>
+        
+        <a class="nav-icon nav-search-btn" title="搜索"><span class="fa fa-search"></span></a>
+      </nav>
+      <div id="search-form-wrap">
+        <form action="//google.com/search" method="get" accept-charset="UTF-8" class="search-form"><input type="search" name="q" class="search-form-input" placeholder="搜索"><button type="submit" class="search-form-submit">&#xF002;</button><input type="hidden" name="sitesearch" value="https://zywoo190.github.io/-jiandianxian.github.io"></form>
+      </div>
+    </div>
+  </div>
+</header>
+
+      <div class="outer">
+        <section id="main"><article id="post-QQ流量分析实验（PC-PC端 / PC-手机端）" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
+  <div class="article-meta">
+    <a href="/-jiandianxian.github.io/2026/10/18/QQ流量分析实验/" class="article-date">
+  <time class="dt-published" datetime="2026-10-18T07:00:00.000Z" itemprop="datePublished">2026-10-18</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="p-name article-title" itemprop="headline name">
+      QQ流量分析实验（PC-PC端 / PC-手机端）
+    </h1>
+  
+
+      </header>
+    
+    <div class="e-content article-entry" itemprop="articleBody">
+      
+        <blockquote>
+<p>课程作业：针对自己实际使用的 QQ，回答三个问题——<strong>用的是 UDP 还是 TCP？传输是加密还是明文？能否恢复明文传输的文件？</strong> 本文记录完整的抓包、识别、分析与文件还原过程，涉及 IP、账号、token 等敏感信息均已做脱敏处理。</p>
+</blockquote>
+<h2 id="_1">一、实验环境</h2>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>操作系统</td>
+<td>Windows 10 / 11</td>
+</tr>
+<tr>
+<td>抓包工具</td>
+<td>Wireshark 4.x</td>
+</tr>
+<tr>
+<td>十六进制编辑器</td>
+<td>HxD</td>
+</tr>
+<tr>
+<td>联网方式</td>
+<td>手机开启热点，PC 通过 WLAN 连接</td>
+</tr>
+<tr>
+<td>本机 IP</td>
+<td><code>192.168.43.50</code></td>
+</tr>
+<tr>
+<td>网关（手机）</td>
+<td><code>192.168.43.1</code></td>
+</tr>
+</tbody>
+</table>
+<p>之所以用手机热点而不是宿舍路由器，是因为热点模式下 <strong>PC 与手机处于同一个二层广播域</strong>，PC 端的 WLAN 网卡能以"混杂模式"抓到手机与 PC 之间、甚至手机转发给其他设备的全部报文，正好覆盖题目要求的"PC-PC 端 + PC-手机端"两种场景。</p>
+<p>先用 <code>ipconfig</code> 确认本机 IP 和默认网关，确定抓包网卡为 <strong>WLAN</strong>：</p>
+<p><img alt="ipconfig 确认本机 IP 与网关" src="/-jiandianxian.github.io/2026/10/18/QQ流量分析实验/images/01-ipconfig.jpg" /></p>
+<h2 id="_2">二、抓包与初步过滤</h2>
+<p>打开 Wireshark，双击 WLAN 网卡开始捕获。此时会有大量无关的背景流量（IPv6 邻居发现、各类 App 的心跳 Keep-Alive、TCP 重传等），直接在一千多条报文里找 QQ 是不现实的，第一步一定是加<strong>显示过滤器</strong>。</p>
+<pre><code class="language-text"># 只看与本机相关的报文
+ip.addr == 192.168.43.50
+</code></pre>
+<p><img alt="Wireshark 捕获并将流量过滤到本机" src="/-jiandianxian.github.io/2026/10/18/QQ流量分析实验/images/02-wireshark-capture.jpg" /></p>
+<p>从报文列表可以观察到几个明显的特征：</p>
+<ul>
+<li>本机与远端服务器（<code>36.150.72.74</code>、<code>120.133.65.237</code>、<code>120.233.51.170</code> 等）之间大量 <strong>443 端口</strong>的连接；</li>
+<li>出现 <code>[TCP Keep-Alive]</code>、<code>[TCP Retransmission]</code>、<code>[SYN]</code>/<code>[ACK]</code>/<code>[FIN, ACK]</code> 等典型 TCP 行为；</li>
+<li>出现 <code>DNS</code> 查询（如 <code>oth.eve.mdt.qq.com</code>），这是 UDP；</li>
+<li><strong><code>8082</code> 端口上有一条 <code>HTTP</code> 报文</strong> —— 这是整次实验的突破口。</li>
+</ul>
+<h2 id="udp-tcp">三、问题一：UDP 还是 TCP？</h2>
+<h3 id="31">3.1 结论</h3>
+<p><strong>QQ 的核心业务以 TCP 为主，辅助场景使用 UDP。</strong></p>
+<h3 id="32">3.2 分析依据</h3>
+<table>
+<thead>
+<tr>
+<th>业务类型</th>
+<th>传输层协议</th>
+<th>端口</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>登录、消息收发、文件/图片传输</td>
+<td><strong>TCP</strong></td>
+<td>443（TLS）</td>
+<td>完整三次握手、ACK 确认、Keep-Alive、FIN 拆链，可靠传输</td>
+</tr>
+<tr>
+<td>局域网在线文件传输</td>
+<td><strong>TCP</strong></td>
+<td>8082（HTTP）</td>
+<td>明文 HTTP，见下文</td>
+</tr>
+<tr>
+<td>DNS 解析</td>
+<td>UDP</td>
+<td>53</td>
+<td>标准查询/响应</td>
+</tr>
+<tr>
+<td>语音 / 视频通话</td>
+<td>UDP</td>
+<td>动态</td>
+<td>允许少量丢包，追求低延迟</td>
+</tr>
+</tbody>
+</table>
+<p>判断依据来自报文细节：截图中 <code>192.168.43.50 → 36.150.72.74</code> 的报文带有 <code>[SYN]</code>、<code>[ACK]</code>、<code>Seq/Ack/Win</code> 字段，且存在 <code>[TCP Retransmission]</code> 和 <code>[TCP Keep-Alive]</code>。这些都是 TCP 独有的机制——UDP 既没有握手，也没有序列号、确认号、重传和窗口，因此可以明确判定该业务跑在 TCP 上。</p>
+<h2 id="_3">四、问题二：加密还是明文？</h2>
+<h3 id="41">4.1 大多数流量是加密的</h3>
+<p>在协议列中可以看到大量 <code>SSL</code> 记录，追踪任意一条 443 端口的 TCP 流，得到的是 TLS 记录层密文（<code>Application Data</code>），无法直接还原出聊天内容或账号信息。</p>
+<p>这说明 QQ 的<strong>登录鉴权、消息同步等核心信令都经过 TLS 加密</strong>，符合现代 IM 的常规设计：即使流量被截获，攻击者也拿不到明文。</p>
+<h3 id="42-pc-http">4.2 但是在"PC-手机端"发现了明文 HTTP</h3>
+<p>把过滤器换成只看 8082 端口后，一条 HTTP 报文非常显眼：</p>
+<pre><code class="language-http">GET /qqline/JXy9tEV+PZD1yfMP66ekn4kq2GGer6dVIvvFR4dMZ77WNy8BWk0Y7A==?token=kkXNQdjNfQ/piPLJ9dH0y7ag4EuPPkGlL4szUH8wgcs= HTTP/1.1
+Host: 192.168.43.1:8082
+Accept: */*
+Connection: Keep-Alive
+User-Agent: Mozilla/5.0 (compatible; MSIE 10.0; Windows NT 6.2)
+Pragma: no-cache
+Cache-Control: no-cache
+
+HTTP/1.1 200 OK
+Server: QQ/1.0.0 (Tencent)
+Content-Length: 4429569
+Connection: keep-alive
+</code></pre>
+<p>这段报文信息量很大，逐一拆解：</p>
+<ol>
+<li><strong><code>Host: 192.168.43.1:8082</code></strong> —— 服务端不是腾讯的公网服务器，而是<strong>手机本身</strong>（热点网关地址）。说明这是手机 QQ 把自己的某个资源，通过局域网直接"在线分发"给 PC 端 QQ。</li>
+<li><strong><code>Server: QQ/1.0.0 (Tencent)</code></strong> —— 服务端标识直接暴露了应用层身份，确认是 QQ 的组件。</li>
+<li><strong><code>Content-Length: 4429569</code></strong> —— 响应体约 4.4 MB，远大于普通文本消息，说明传输的是一个<strong>文件</strong>。</li>
+<li><strong><code>User-Agent: ... MSIE 10.0 ...</code></strong> —— 使用老式 IE 的 UA，是 PC 端内置浏览器内核（CEF/IE 兼容模式）发起的请求，常见于 QQ 内置的"查看图片/文件"预览页。</li>
+<li>URL 路径与 <code>token</code> 是一长串 Base64，属于<strong>鉴权参数</strong>，并不是对内容的加密——<strong>响应体本身是裸的原始文件字节</strong>。</li>
+</ol>
+<p>追踪这条 TCP 流（<code>tcp.stream eq 51</code>），切换到"原始数据"视图，响应头之后紧接着出现：</p>
+<pre><code class="language-text">ffd8ffe5001a495455543538 264...
+</code></pre>
+<p><img alt="追踪 HTTP 流，可见明文文件内容" src="/-jiandianxian.github.io/2026/10/18/QQ流量分析实验/images/03-http-stream.jpg" /></p>
+<p><code>FF D8 FF</code> 正是 <strong>JPEG 的文件头（魔数）</strong>。也就是说，<strong>图片内容是以明文 HTTP 断点传输的，没有任何加密</strong>。</p>
+<p><img alt="原始数据视图中出现 JPEG 文件头 ffd8ffe5" src="/-jiandianxian.github.io/2026/10/18/QQ流量分析实验/images/04-raw-data.jpg" /></p>
+<h3 id="43">4.3 为什么会出现明文？</h3>
+<p>本质上这是<strong>局域网内的性能优化</strong>：当 PC 和手机在同一热点下，QQ 发现"对方就在旁边"，就会放弃"上传到腾讯服务器 → 对方再下载"的公网中转路径，改为<strong>局域网直连（类似 P2P 的在线传输）</strong>。由于链路本身不可被外部网络监听，实现方在这种场景下简化了协议——直接用一个内嵌的 HTTP 小服务（8082 端口）把文件吐给对端，于是就留下了明文流量。</p>
+<p>这也正好对应题目里的提示：<strong>"在线传输方式"</strong>。</p>
+<blockquote>
+<p>⚠️ 安全提示：这意味着在公共 WiFi、宿舍共享网络、公司内网等<strong>同网段可被嗅探</strong>的环境中，别人完全可能用同样的方法抓走你在线发送的图片、文件。QQ 的加密策略在这里是"按场景降级"的。</p>
+</blockquote>
+<h2 id="_4">五、问题三：恢复明文传输的文件</h2>
+<p>既然文件是明文，就能完整还原。整个过程分为三步：<strong>定位 → 导出 → 修复</strong>。</p>
+<h3 id="51">5.1 定位文件边界</h3>
+<p>可以从两个线索确定文件起止：</p>
+<ul>
+<li><strong>起点</strong>：JPEG 魔数 <code>FF D8 FF</code>（后面通常跟 <code>E0</code> 表示 JFIF 段）</li>
+<li><strong>终点</strong>：JPEG 文件尾 <code>FF D9</code>（EOI，End Of Image）</li>
+<li><strong>长度</strong>：HTTP 头里的 <code>Content-Length: 4429569</code> 给出了精确字节数，可直接校验</li>
+</ul>
+<h3 id="52">5.2 导出对象</h3>
+<p>方法一（推荐）：Wireshark 菜单 <code>文件 → 导出对象 → HTTP</code>，在弹出的对象列表里找到该请求，保存为 <code>reversed_qq.jpg</code>。</p>
+<p>方法二：在追踪流窗口点"另存为"，保存整段流内容。</p>
+<h3 id="53">5.3 修复文件头</h3>
+<p>导出后双击打开，图片查看器提示"<strong>无法打开此图片</strong>"——文件损坏了。</p>
+<p>用 HxD 打开看十六进制，问题一目了然：</p>
+<p><img alt="HxD 中文件开头是完整的 HTTP 报文" src="/-jiandianxian.github.io/2026/10/18/QQ流量分析实验/images/05-hxd-reversed.jpg" /></p>
+<p>文件偏移 <code>0x00000000</code> 开始的内容是 <code>GET /qqline/JXy9...</code>，也就是<strong>整段 HTTP 请求行 + 请求头 + 响应头 + 响应体</strong>都被一起保存进来了。操作系统和图片查看器都是靠<strong>文件头魔数</strong>判断类型的，开头是 <code>G</code>(0x47) 而不是 <code>FF</code>，自然识别失败。</p>
+<p>修复方法：在 HxD 中搜索 <code>FF D8 FF</code>（快捷键 <code>Ctrl+F</code>，选择"十六进制值"），记下真实 JPEG 数据的起始偏移，然后<strong>选中该偏移之前的全部字节并删除</strong>（<code>Ctrl+E</code> 选区起点 → <code>Ctrl+Shift+E</code> 选区终点 → <code>Delete</code>），让文件以 <code>FF D8 FF E0</code> 开头，另存为 <code>fix_qq.jpg</code>。</p>
+<p>修复后的文件头：</p>
+<p><img alt="修复后以 FFD8FFE0 开头" src="/-jiandianxian.github.io/2026/10/18/QQ流量分析实验/images/07-hxd-fixed.jpg" /></p>
+<p>顺便在数据中还能读到一些<strong>明文元信息</strong>，进一步佐证这是原始图片：</p>
+<ul>
+<li><code>HUAWEI Pura 70 Pro</code> + <code>HBN-AL00</code> —— 拍摄设备型号</li>
+<li><code>2026:09:19 17:44:20</code> —— EXIF 拍摄时间</li>
+<li><code>Exif</code>、<code>MM</code>、<code>ITU-T35</code> —— 标准 JPEG/EXIF 结构标识</li>
+</ul>
+<h3 id="54">5.4 验证结果</h3>
+<p>打开 <code>fix_qq.jpg</code>，图片正常显示：</p>
+<p><img alt="成功恢复的图片" src="/-jiandianxian.github.io/2026/10/18/QQ流量分析实验/images/07-recovered.jpg" /></p>
+<p>恢复出来的正是当时通过手机 QQ 在线发送的一张游戏战斗结算截图，画面完整、无损坏。实验成功。</p>
+<h3 id="55">5.5 通用方法论：文件魔数表</h3>
+<p>这次能成功还原，核心就在于<strong>利用文件头特征码定位真实数据的起点</strong>。常见文件类型的魔数如下，掌握这张表就能应对绝大多数明文流量中的文件还原：</p>
+<table>
+<thead>
+<tr>
+<th>文件类型</th>
+<th>魔数（Hex）</th>
+<th>ASCII 特征</th>
+<th>文件尾</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>JPEG</td>
+<td><code>FF D8 FF</code></td>
+<td><code>ÿØÿ</code></td>
+<td><code>FF D9</code></td>
+</tr>
+<tr>
+<td>PNG</td>
+<td><code>89 50 4E 47 0D 0A 1A 0A</code></td>
+<td><code>.PNG....</code></td>
+<td><code>49 45 4E 44 AE 42 60 82</code>（IEND）</td>
+</tr>
+<tr>
+<td>GIF</td>
+<td><code>47 49 46 38 39 61</code></td>
+<td><code>GIF89a</code></td>
+<td><code>3B</code></td>
+</tr>
+<tr>
+<td>BMP</td>
+<td><code>42 4D</code></td>
+<td><code>BM</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td>PDF</td>
+<td><code>25 50 44 46 2D</code></td>
+<td><code>%PDF-</code></td>
+<td><code>%%EOF</code></td>
+</tr>
+<tr>
+<td>ZIP</td>
+<td><code>50 4B 03 04</code></td>
+<td><code>PK..</code></td>
+<td>中央目录结束记录</td>
+</tr>
+<tr>
+<td>RAR</td>
+<td><code>52 61 72 21 1A 07</code></td>
+<td><code>Rar!..</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td>GZIP</td>
+<td><code>1F 8B 08</code></td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>MP4</td>
+<td><code>00 00 00 18 66 74 79 70</code></td>
+<td><code>ftyp</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td>DOCX/XLSX (OOXML)</td>
+<td><code>50 4B 03 04</code></td>
+<td><code>PK..</code></td>
+<td>同 ZIP</td>
+</tr>
+</tbody>
+</table>
+<p>自动化思路（Python 版），比手工删头更适合批量处理：</p>
+<pre><code class="language-python">import re
+
+MAGIC = {
+    b&quot;\xff\xd8\xff&quot;: &quot;.jpg&quot;,
+    b&quot;\x89PNG\r\n\x1a\n&quot;: &quot;.png&quot;,
+    b&quot;GIF89a&quot;: &quot;.gif&quot;,
+    b&quot;%PDF-&quot;: &quot;.pdf&quot;,
+    b&quot;PK\x03\x04&quot;: &quot;.zip&quot;,
+}
+
+def carve(pcap_payload: bytes, out_prefix=&quot;carved&quot;):
+    # 从原始字节流中抠出文件（简化版 carver）
+    made = []
+    for magic, ext in MAGIC.items():
+        for m in re.finditer(re.escape(magic), pcap_payload):
+            start = m.start()
+            end = start + 1
+            if ext == &quot;.jpg&quot;:
+                # 找 EOI: FF D9
+                i = pcap_payload.find(b&quot;\xff\xd9&quot;, start)
+                if i != -1:
+                    end = i + 2
+            if end &gt; start + 512:                      # 过滤误匹配
+                name = f&quot;{out_prefix}{len(made)}{ext}&quot;
+                with open(name, &quot;wb&quot;) as f:
+                    f.write(pcap_payload[start:end])
+                made.append((name, start, end))
+    return made
+</code></pre>
+<h2 id="_5">六、结论汇总</h2>
+<table>
+<thead>
+<tr>
+<th>题目问题</th>
+<th>本次实验结论</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>UDP or TCP</strong></td>
+<td>消息、登录、文件传输均以 <strong>TCP</strong> 为主（443 + 8082）；UDP 用于 DNS 解析与音视频通话</td>
+</tr>
+<tr>
+<td><strong>加密 or 明文</strong></td>
+<td>公网业务走 <strong>TLS 加密</strong>；但 PC-手机端<strong>同局域网在线传图</strong>走了 <strong>HTTP 明文</strong>（<code>Server: QQ/1.0.0</code>）</td>
+</tr>
+<tr>
+<td><strong>能否恢复文件</strong></td>
+<td><strong>可以</strong>。用 <code>Content-Length</code> 与 JPEG 魔数 <code>FF D8 FF</code> 定位，删除导出文件前置的 HTTP 头，完整还原 4.4 MB 图片</td>
+</tr>
+</tbody>
+</table>
+<p>一句话总结：<strong>QQ 把加密做在了"公网链路"上，却把明文留在了"局域网直连"里。</strong> 攻击面不在算法强度，而在场景降级。</p>
+<h2 id="_6">七、防护建议与隐私说明</h2>
+<p><strong>用户侧防护：</strong></p>
+<ol>
+<li>不要在不可信的公共 WiFi / 共享网段下传输敏感图片、证件照、合同；</li>
+<li>关闭系统与热点的"网络发现/共享"，避免陌生设备处于同一二层网络；</li>
+<li>重要文件拒绝"原图/原始文件"以外的传输方式（很多 IM 的"文件助手"路径会走公网加密通道）；</li>
+<li>涉及身份证、银行卡的图片，优先用压缩或涂改后的版本发送。</li>
+</ol>
+<p><strong>实验侧隐私处理：</strong></p>
+<ul>
+<li>本文所有 IP 均为局域网私有地址（RFC1918），不构成真实位置泄露；</li>
+<li>QQ 号、好友昵称、URL token、设备序列号等已在截图中打码；</li>
+<li>抓包文件（<code>.pcapng</code>）不对外分享；如需分享，应先用 Wireshark <code>编辑 → 首选项 → 协议 → HTTP/TLS</code> 关闭私钥解密，或用 <code>editcap</code> / TraceWrangler 删除敏感帧。</li>
+</ul>
+<h2 id="_7">附录：常用过滤器速查</h2>
+<pre><code class="language-text">ip.addr == 192.168.43.50          # 只看本机
+tcp.port == 443                   # 只看 443
+tcp.stream eq 51                  # 定位某条 TCP 流
+http                              # 只看 HTTP
+http.request.method == &quot;GET&quot;      # 只看 GET 请求
+http.content_type contains &quot;image&quot; # 只看图片响应
+tls.handshake.type == 1           # Client Hello
+dns                               # DNS 查询
+frame contains ff:d8:ff           # 在载荷中搜 JPEG 魔数
+tcp.flags.syn == 1 &amp;&amp; tcp.flags.ack == 0  # 只看 SYN
+</code></pre>
+<hr />
+<p><em>实验环境与数据均为本人设备真实抓取，仅用于课程学习与安全研究，不涉及任何第三方隐私数据。</em></p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="https://zywoo190.github.io/-jiandianxian.github.io/2026/10/18/QQ流量分析实验/" data-id="cuidQQflow20261018abcd" data-title="QQ流量分析实验（PC-PC端 / PC-手机端）" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      
+      
+      
+  <ul class="article-tag-list" itemprop="keywords"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/-jiandianxian.github.io/tags/%E7%BD%91%E7%BB%9C%E5%AE%89%E5%85%A8/" rel="tag">网络安全</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/-jiandianxian.github.io/tags/%E6%B5%81%E9%87%8F%E5%88%86%E6%9E%90/" rel="tag">流量分析</a></li></ul>
+
+    </footer>
+  </div>
+  
+    
+  
+</article>
+
+
+</section>
+        
+          __SIDEBAR__
+        
+      </div>
+      <footer id="footer">
+  
+  <div class="outer">
+    <div id="footer-info" class="inner">
+      
+      &copy; 2026 ZywOo190<br>
+      Powered by <a href="https://hexo.io/" target="_blank">Hexo</a>
+    </div>
+  </div>
+</footer>
+
+    </div>
+    <nav id="mobile-nav">
+  
+    <a href="/-jiandianxian.github.io/" class="mobile-nav-link">Home</a>
+  
+    <a href="/-jiandianxian.github.io/archives" class="mobile-nav-link">Archives</a>
+  
+</nav>
+    
+
+
+<script src="/-jiandianxian.github.io/js/jquery-3.6.4.min.js"></script>
+
+
+
+  
+<script src="/-jiandianxian.github.io/fancybox/jquery.fancybox.min.js"></script>
+
+
+
+
+<script src="/-jiandianxian.github.io/js/script.js"></script>
+
+
+
+
+
+  </div>
+</body>
+</html>
